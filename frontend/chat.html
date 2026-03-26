@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fleet Intelligence — Chat</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: #f1f5f9; color: #1e293b; height: 100vh;
+           display: flex; flex-direction: column; }
+
+    nav {
+      background: #1e293b; padding: 0 2rem; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between; height: 56px;
+    }
+    nav .brand { color: #f8fafc; font-weight: 700; font-size: 1rem; }
+    nav .brand span { color: #818cf8; }
+    nav .links a { color: #94a3b8; text-decoration: none; font-size: .875rem;
+                   margin-left: 1.5rem; transition: color .15s; }
+    nav .links a:hover, nav .links a.active { color: #f8fafc; }
+
+    .chat-layout {
+      flex: 1; display: flex; flex-direction: column;
+      max-width: 860px; width: 100%; margin: 0 auto;
+      padding: 1.5rem 1.5rem 0;
+      min-height: 0;
+    }
+
+    .chat-header { margin-bottom: 1rem; }
+    .chat-header h1 { font-size: 1.1rem; font-weight: 600; }
+    .chat-header p  { font-size: .8rem; color: #64748b; margin-top: .2rem; }
+
+    .messages {
+      flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+      gap: 1rem; padding-bottom: 1rem; min-height: 0;
+    }
+
+    .msg { display: flex; gap: .75rem; }
+    .msg.user  { flex-direction: row-reverse; }
+
+    .avatar {
+      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem; font-weight: 700;
+    }
+    .avatar.agent { background: #4f46e5; color: white; }
+    .avatar.user  { background: #e2e8f0; color: #64748b; }
+
+    .bubble {
+      max-width: 78%; padding: .75rem 1rem; border-radius: 12px;
+      font-size: .9rem; line-height: 1.55;
+    }
+    .msg.agent .bubble { background: white; box-shadow: 0 1px 3px rgba(0,0,0,.08); border-radius: 2px 12px 12px 12px; }
+    .msg.user  .bubble { background: #4f46e5; color: white; border-radius: 12px 2px 12px 12px; }
+
+    .bubble table { border-collapse: collapse; width: 100%; margin: .5rem 0; font-size: .82rem; }
+    .bubble th, .bubble td { border: 1px solid #e2e8f0; padding: .3rem .6rem; text-align: left; }
+    .bubble th { background: #f8fafc; font-weight: 600; }
+    .bubble h2, .bubble h3 { margin: .6rem 0 .3rem; font-size: .95rem; }
+    .bubble p  { margin: .3rem 0; }
+    .bubble ul, .bubble ol { margin: .3rem 0 .3rem 1.2rem; }
+    .bubble li { margin: .15rem 0; }
+    .bubble strong { font-weight: 700; }
+    .bubble hr { border: none; border-top: 1px solid #e2e8f0; margin: .6rem 0; }
+
+    .typing { display: flex; align-items: center; gap: 4px; padding: .75rem 1rem; }
+    .typing span {
+      width: 7px; height: 7px; background: #94a3b8;
+      border-radius: 50%; animation: bounce 1.2s infinite;
+    }
+    .typing span:nth-child(2) { animation-delay: .2s; }
+    .typing span:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+
+    .input-area {
+      padding: 1rem 0 1.5rem;
+      display: flex; gap: .75rem; flex-shrink: 0;
+    }
+    textarea {
+      flex: 1; border: 1px solid #e2e8f0; border-radius: 10px;
+      padding: .75rem 1rem; font-size: .9rem; font-family: inherit;
+      resize: none; outline: none; background: white;
+      transition: border-color .15s; line-height: 1.4;
+    }
+    textarea:focus { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129,140,248,.15); }
+    textarea::placeholder { color: #94a3b8; }
+
+    button {
+      background: #4f46e5; color: white; border: none;
+      border-radius: 10px; padding: .75rem 1.25rem; font-size: .875rem;
+      font-weight: 600; cursor: pointer; transition: background .15s;
+      align-self: flex-end;
+    }
+    button:hover   { background: #4338ca; }
+    button:disabled { background: #c7d2fe; cursor: not-allowed; }
+
+    .suggestions {
+      display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem;
+    }
+    .chip {
+      background: white; border: 1px solid #e2e8f0; border-radius: 999px;
+      padding: .35rem .85rem; font-size: .78rem; cursor: pointer;
+      color: #475569; transition: all .15s;
+    }
+    .chip:hover { background: #4f46e5; color: white; border-color: #4f46e5; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">Fleet <span>Intelligence</span></div>
+  <div class="links">
+    <a href="/">Dashboard</a>
+    <a href="/chat" class="active">Chat</a>
+  </div>
+</nav>
+
+<div class="chat-layout">
+  <div class="chat-header">
+    <h1>Fleet Intelligence Agent</h1>
+    <p>Ask anything about your fleet — vehicles, branches, costs, risk.</p>
+  </div>
+
+  <div class="suggestions" id="suggestions">
+    <span class="chip" onclick="send(this.textContent)">Which branches need urgent attention?</span>
+    <span class="chip" onclick="send(this.textContent)">Tell me everything about Reg_0289</span>
+    <span class="chip" onclick="send(this.textContent)">Are our highest fuel-cost vehicles also high risk?</span>
+    <span class="chip" onclick="send(this.textContent)">Give me a fleet health summary</span>
+  </div>
+
+  <div class="messages" id="messages"></div>
+
+  <div class="input-area">
+    <textarea id="input" rows="2" placeholder="Ask the agent a question…"></textarea>
+    <button id="send-btn" onclick="sendFromInput()">Send</button>
+  </div>
+</div>
+
+<script>
+  const messagesEl = document.getElementById('messages');
+  const inputEl    = document.getElementById('input');
+  const sendBtn    = document.getElementById('send-btn');
+
+  // Allow Enter to send (Shift+Enter for newline)
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendFromInput(); }
+  });
+
+  function sendFromInput() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+    inputEl.value = '';
+    send(text);
+  }
+
+  function renderMarkdown(text) {
+    // Simple markdown: tables, bold, headers, lists, hr
+    return text
+      // Tables
+      .replace(/\|(.+)\|\n\|[-| :]+\|\n((?:\|.+\|\n?)+)/g, (_, header, rows) => {
+        const ths = header.split('|').filter(c => c.trim()).map(c => `<th>${c.trim()}</th>`).join('');
+        const trs = rows.trim().split('\n').map(row => {
+          const tds = row.split('|').filter(c => c.trim()).map(c => `<td>${c.trim()}</td>`).join('');
+          return `<tr>${tds}</tr>`;
+        }).join('');
+        return `<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+      })
+      .replace(/^#{1,3}\s(.+)$/gm, '<h3>$1</h3>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/^---$/gm, '<hr>')
+      .replace(/^\s*[-*]\s(.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`)
+      .replace(/^\d+\.\s(.+)$/gm, '<li>$1</li>')
+      .replace(/\n{2,}/g, '</p><p>')
+      .replace(/^(?!<[hut]|<li|<hr)(.+)$/gm, '$1');
+  }
+
+  async function send(message) {
+    // Hide suggestions after first message
+    document.getElementById('suggestions').style.display = 'none';
+
+    appendMessage('user', message);
+    const typing = appendTyping();
+    sendBtn.disabled = true;
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      });
+      const data = await res.json();
+      typing.remove();
+      appendMessage('agent', data.response);
+    } catch (err) {
+      typing.remove();
+      appendMessage('agent', 'Sorry, something went wrong. Please try again.');
+    } finally {
+      sendBtn.disabled = false;
+      inputEl.focus();
+    }
+  }
+
+  function appendMessage(role, text) {
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    const initials = role === 'agent' ? 'AI' : 'You';
+    div.innerHTML = `
+      <div class="avatar ${role}">${initials}</div>
+      <div class="bubble">${role === 'agent' ? renderMarkdown(text) : escapeHtml(text)}</div>`;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return div;
+  }
+
+  function appendTyping() {
+    const div = document.createElement('div');
+    div.className = 'msg agent';
+    div.innerHTML = `
+      <div class="avatar agent">AI</div>
+      <div class="bubble">
+        <div class="typing"><span></span><span></span><span></span></div>
+      </div>`;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return div;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>

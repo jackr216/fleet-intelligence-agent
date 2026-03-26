@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fleet Intelligence — Vehicle</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: #f1f5f9; color: #1e293b; min-height: 100vh; }
+
+    nav { background: #1e293b; padding: 0 2rem; display: flex; align-items: center;
+          justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 10; }
+    nav .brand { color: #f8fafc; font-weight: 700; font-size: 1rem; }
+    nav .brand span { color: #818cf8; }
+    nav .links a { color: #94a3b8; text-decoration: none; font-size: .875rem;
+                   margin-left: 1.5rem; transition: color .15s; }
+    nav .links a:hover { color: #f8fafc; }
+
+    main { max-width: 1000px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    .back { display: inline-flex; align-items: center; gap: .4rem; color: #64748b;
+            text-decoration: none; font-size: .875rem; margin-bottom: 1.5rem; transition: color .15s; }
+    .back:hover { color: #1e293b; }
+
+    .page-title { font-size: 1.5rem; font-weight: 700; margin-bottom: .25rem; }
+    .page-sub   { color: #64748b; font-size: .875rem; margin-bottom: 2rem; }
+
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+    .kpi-card { background: white; border-radius: 10px; padding: 1.25rem 1.5rem;
+                box-shadow: 0 1px 3px rgba(0,0,0,.08); border-left: 4px solid #e2e8f0; }
+    .kpi-card.red    { border-left-color: #ef4444; }
+    .kpi-card.amber  { border-left-color: #f59e0b; }
+    .kpi-card.blue   { border-left-color: #3b82f6; }
+    .kpi-card.green  { border-left-color: #10b981; }
+    .kpi-label { font-size: .7rem; font-weight: 700; text-transform: uppercase;
+                 letter-spacing: .06em; color: #64748b; margin-bottom: .4rem; }
+    .kpi-value { font-size: 1.75rem; font-weight: 700; color: #0f172a; }
+    .kpi-sub   { font-size: .78rem; color: #94a3b8; margin-top: .3rem; }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem; }
+    .card { background: white; border-radius: 10px; padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 1rem; }
+    h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; color: #0f172a; }
+
+    .stat-row { display: flex; justify-content: space-between; align-items: center;
+                font-size: .875rem; padding: .5rem 0; border-bottom: 1px solid #f1f5f9; }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-label { color: #64748b; }
+    .stat-val   { font-weight: 600; color: #1e293b; }
+
+    .flag-row { display: flex; justify-content: space-between; align-items: center;
+                font-size: .875rem; padding: .5rem 0; border-bottom: 1px solid #f1f5f9; }
+    .flag-row:last-child { border-bottom: none; }
+    .flag-yes { color: #ef4444; font-weight: 700; }
+    .flag-ok  { color: #10b981; font-weight: 600; }
+    .flag-warn { color: #f59e0b; font-weight: 700; }
+
+    .badge { display: inline-block; padding: .25rem .75rem; border-radius: 999px;
+             font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+    .badge-red   { background: #fee2e2; color: #b91c1c; }
+    .badge-amber { background: #fef3c7; color: #92400e; }
+    .badge-green { background: #dcfce7; color: #166534; }
+
+    .action-box { background: #fef9ec; border: 1px solid #fde68a; border-radius: 8px;
+                  padding: 1rem 1.25rem; font-size: .875rem; color: #92400e; line-height: 1.6; }
+    .action-box strong { display: block; margin-bottom: .3rem; color: #78350f; }
+
+    .chart-wrap { position: relative; height: 220px; }
+
+    .loading { color: #94a3b8; font-style: italic; padding: 2rem; text-align: center; }
+
+    @media (max-width: 700px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .two-col  { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">Fleet <span>Intelligence</span></div>
+  <div class="links">
+    <a href="/">Dashboard</a>
+    <a href="/chat">Chat</a>
+  </div>
+</nav>
+
+<main>
+  <a class="back" id="back-link" href="/">← Back</a>
+  <div class="page-title" id="page-title">Loading...</div>
+  <div class="page-sub"  id="page-sub"></div>
+
+  <div class="kpi-grid" id="kpi-grid"></div>
+
+  <div class="two-col">
+    <!-- Vehicle details -->
+    <div class="card">
+      <h2>Vehicle Details</h2>
+      <div id="vehicle-details"></div>
+    </div>
+
+    <!-- Maintenance flags -->
+    <div class="card">
+      <h2>Maintenance Status</h2>
+      <div id="maintenance-flags"></div>
+    </div>
+  </div>
+
+  <!-- Fuel forecast chart -->
+  <div class="card" id="fuel-card" style="display:none">
+    <h2>Monthly Fuel Forecast <span style="font-size:.8rem;font-weight:400;color:#94a3b8">— Apr 2026 to Mar 2027</span></h2>
+    <div class="chart-wrap"><canvas id="fuelChart"></canvas></div>
+  </div>
+
+  <!-- Recommended action -->
+  <div id="action-box-wrap"></div>
+
+</main>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const regId  = params.get('id');
+  const fromBranch = params.get('branch');
+
+  // Set back link
+  if (fromBranch) {
+    const bl = document.getElementById('back-link');
+    bl.href = `/branch?id=${fromBranch}`;
+    bl.textContent = `← Back to ${fromBranch}`;
+  }
+
+  if (!regId) {
+    document.getElementById('page-title').textContent = 'No vehicle specified';
+  } else {
+    loadVehicle(regId);
+  }
+
+  function fmt(v, prefix='', suffix='', dp=0) {
+    if (v == null) return '—';
+    const n = dp > 0 ? Number(v).toFixed(dp) : Math.round(v).toLocaleString();
+    return `${prefix}${n}${suffix}`;
+  }
+
+  async function loadVehicle(id) {
+    const d = await fetch(`/api/vehicle/${encodeURIComponent(id)}`).then(r => r.json());
+    if (d.error) { document.getElementById('page-title').textContent = 'Vehicle not found'; return; }
+
+    document.title = `Fleet Intelligence — ${id}`;
+    document.getElementById('page-title').textContent = id;
+
+    const riskColor = d.risk_band === 'High' ? 'red' : d.risk_band === 'Medium' ? 'amber' : 'green';
+    document.getElementById('page-sub').textContent =
+      `${d.make ?? ''} ${d.model ?? ''}  ·  ${d.van_type ?? ''}  ·  ${d.branch ?? 'Unassigned'}`;
+
+    // KPI cards
+    document.getElementById('kpi-grid').innerHTML = `
+      <div class="kpi-card ${riskColor}">
+        <div class="kpi-label">Risk Score</div>
+        <div class="kpi-value">${d.risk_score ?? '—'} <span style="font-size:1rem;font-weight:400">/ 12</span></div>
+        <div class="kpi-sub"><span class="badge badge-${riskColor}">${d.risk_band ?? '—'}</span></div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-label">Vehicle Age</div>
+        <div class="kpi-value">${d.vehicle_age_yrs ?? '—'}<span style="font-size:1rem;font-weight:400"> yrs</span></div>
+        <div class="kpi-sub">${fmt(d.total_miles, '', ' miles')}</div>
+      </div>
+      <div class="kpi-card amber">
+        <div class="kpi-label">Driver Score</div>
+        <div class="kpi-value">${d.driver_score ?? '—'}</div>
+        <div class="kpi-sub">telematics score</div>
+      </div>
+      <div class="kpi-card ${d.fuel_total_spend ? 'blue' : ''}">
+        <div class="kpi-label">Fuel Forecast</div>
+        <div class="kpi-value">${d.fuel_total_spend != null ? '£' + Math.round(d.fuel_total_spend).toLocaleString() : '—'}</div>
+        <div class="kpi-sub">Apr 2026 – Mar 2027</div>
+      </div>
+    `;
+
+    // Vehicle details
+    document.getElementById('vehicle-details').innerHTML = [
+      ['Make', d.make],
+      ['Model', d.model],
+      ['Type', d.van_type],
+      ['Branch', d.branch ?? 'Unassigned'],
+      ['Age', fmt(d.vehicle_age_yrs, '', ' years')],
+      ['Mileage', fmt(d.total_miles, '', ' miles')],
+      ['Days Since Last Repair', d.days_since_last_repair != null ? d.days_since_last_repair + ' days' : 'No record'],
+    ].map(([l, v]) => `
+      <div class="stat-row">
+        <span class="stat-label">${l}</span>
+        <span class="stat-val">${v ?? '—'}</span>
+      </div>`).join('');
+
+    // Maintenance flags
+    const motStatus = d.mot_overdue
+      ? '<span class="flag-yes">OVERDUE ⚠️</span>'
+      : d.mot_due_30_days
+        ? `<span class="flag-warn">Due soon (${d.next_mot_date ?? ''})</span>`
+        : `<span class="flag-ok">OK ${d.next_mot_date ? '(' + d.next_mot_date + ')' : ''}</span>`;
+
+    document.getElementById('maintenance-flags').innerHTML = `
+      <div class="flag-row">
+        <span class="stat-label">Brakes</span>
+        <span class="${d.brakes_overdue ? 'flag-yes' : 'flag-ok'}">${d.brakes_overdue ? 'Overdue' : 'OK'}</span>
+      </div>
+      <div class="flag-row">
+        <span class="stat-label">Tyres</span>
+        <span class="${d.tyres_overdue ? 'flag-yes' : 'flag-ok'}">${d.tyres_overdue ? 'Overdue' : 'OK'}</span>
+      </div>
+      <div class="flag-row">
+        <span class="stat-label">MOT Status</span>
+        ${motStatus}
+      </div>
+      <div class="flag-row">
+        <span class="stat-label">Risk Band</span>
+        <span class="badge badge-${riskColor}">${d.risk_band ?? '—'}</span>
+      </div>
+      <div class="flag-row">
+        <span class="stat-label">Risk Score</span>
+        <span class="stat-val">${d.risk_score ?? '—'} / 12</span>
+      </div>
+    `;
+
+    // Monthly fuel chart
+    if (d.monthly_fuel && Object.keys(d.monthly_fuel).length) {
+      document.getElementById('fuel-card').style.display = 'block';
+      const labels = Object.keys(d.monthly_fuel).map(k => k.replace('_', '-'));
+      const values = Object.values(d.monthly_fuel);
+      const ctx = document.getElementById('fuelChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Forecast Spend (£)',
+            data: values,
+            backgroundColor: '#818cf8',
+            borderRadius: 4,
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { ticks: { callback: v => '£' + v } }
+          },
+          maintainAspectRatio: false,
+        }
+      });
+    }
+
+    // Recommended action
+    if (d.recommended_action) {
+      const actions = d.recommended_action.split('|').map(s => s.trim()).filter(Boolean);
+      document.getElementById('action-box-wrap').innerHTML = `
+        <div class="action-box">
+          <strong>Recommended Actions</strong>
+          ${actions.map(a => `<div>• ${a}</div>`).join('')}
+        </div>`;
+    }
+  }
+</script>
+</body>
+</html>

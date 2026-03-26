@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fleet Intelligence — Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+      min-height: 100vh;
+    }
+
+    /* ── Nav ── */
+    nav {
+      background: #1e293b;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    nav .brand { color: #f8fafc; font-weight: 700; font-size: 1rem; letter-spacing: .02em; }
+    nav .brand span { color: #818cf8; }
+    nav .links a {
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: .875rem;
+      margin-left: 1.5rem;
+      transition: color .15s;
+    }
+    nav .links a:hover, nav .links a.active { color: #f8fafc; }
+
+    /* ── Layout ── */
+    main { max-width: 1280px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    h2 { font-size: 1.25rem; font-weight: 600; color: #0f172a; margin-bottom: 1rem; }
+
+    /* ── KPI Cards ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .kpi-card {
+      background: white;
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+      border-left: 4px solid #e2e8f0;
+    }
+    .kpi-card.red    { border-left-color: #ef4444; }
+    .kpi-card.amber  { border-left-color: #f59e0b; }
+    .kpi-card.blue   { border-left-color: #3b82f6; }
+    .kpi-card.purple { border-left-color: #8b5cf6; }
+    .kpi-label { font-size: .75rem; font-weight: 600; text-transform: uppercase;
+                 letter-spacing: .06em; color: #64748b; margin-bottom: .5rem; }
+    .kpi-value { font-size: 2rem; font-weight: 700; color: #0f172a; line-height: 1; }
+    .kpi-sub   { font-size: .8rem; color: #94a3b8; margin-top: .4rem; }
+
+    /* ── Charts + Table row ── */
+    .mid-grid {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      align-items: start;
+    }
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    .chart-wrap { position: relative; height: 220px; display: flex; align-items: center; justify-content: center; }
+
+    /* ── Risk legend ── */
+    .legend { margin-top: 1rem; display: flex; flex-direction: column; gap: .5rem; }
+    .legend-item { display: flex; align-items: center; gap: .5rem; font-size: .85rem; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Branch table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    thead th {
+      text-align: left;
+      padding: .6rem 1rem;
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #64748b;
+      border-bottom: 2px solid #e2e8f0;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    thead th:hover { color: #1e293b; }
+    tbody tr {
+      border-bottom: 1px solid #f1f5f9;
+      cursor: pointer;
+      transition: background .1s;
+    }
+    tbody tr:hover { background: #f8fafc; }
+    tbody td { padding: .65rem 1rem; color: #334155; }
+    tbody td:first-child { font-weight: 600; color: #1e293b; }
+
+    /* ── RAG badge ── */
+    .badge {
+      display: inline-block;
+      padding: .2rem .6rem;
+      border-radius: 999px;
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .badge-red    { background: #fee2e2; color: #b91c1c; }
+    .badge-amber  { background: #fef3c7; color: #92400e; }
+    .badge-green  { background: #dcfce7; color: #166534; }
+    .badge-grey   { background: #f1f5f9; color: #64748b; }
+
+    /* ── Flags row ── */
+    .flags-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .flag-card {
+      background: white;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .flag-icon { font-size: 1.75rem; }
+    .flag-label { font-size: .75rem; color: #64748b; font-weight: 600;
+                  text-transform: uppercase; letter-spacing: .05em; }
+    .flag-val { font-size: 1.4rem; font-weight: 700; color: #0f172a; }
+
+    /* ── Loading ── */
+    .loading { color: #94a3b8; font-style: italic; padding: 2rem; text-align: center; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .mid-grid { grid-template-columns: 1fr; }
+      .flags-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">Fleet <span>Intelligence</span></div>
+  <div class="links">
+    <a href="/" class="active">Dashboard</a>
+    <a href="/chat">Chat</a>
+  </div>
+</nav>
+
+<main>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid" id="kpi-grid">
+    <div class="loading">Loading...</div>
+  </div>
+
+  <!-- Maintenance flags -->
+  <h2>Maintenance Flags</h2>
+  <div class="flags-grid" id="flags-grid">
+    <div class="loading">Loading...</div>
+  </div>
+
+  <!-- Risk chart + Branch table -->
+  <div class="mid-grid">
+    <div class="card">
+      <h2>Risk Distribution</h2>
+      <div class="chart-wrap">
+        <canvas id="riskChart"></canvas>
+      </div>
+      <div class="legend" id="risk-legend"></div>
+    </div>
+
+    <div class="card">
+      <h2>Branch Heatmap <span style="font-size:.8rem;font-weight:400;color:#94a3b8">— click a row to drill in</span></h2>
+      <div class="table-wrap">
+        <table id="branch-table">
+          <thead>
+            <tr>
+              <th onclick="sortTable('branch')">Branch</th>
+              <th onclick="sortTable('total_vans')">Vans</th>
+              <th onclick="sortTable('high_risk')">High Risk</th>
+              <th onclick="sortTable('pct_high_risk')">% High Risk</th>
+              <th onclick="sortTable('fuel_total_spend')">Fuel Forecast</th>
+              <th onclick="sortTable('cvr_avg_risk_score')">CVR Risk</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="branch-tbody">
+            <tr><td colspan="7" class="loading">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  let branchData = [];
+  let sortKey = 'pct_high_risk';
+  let sortAsc = false;
+
+  function fmt_gbp(v) {
+    if (v == null) return '—';
+    return '£' + Math.round(v).toLocaleString();
+  }
+
+  function rag(row) {
+    const risk = row.pct_high_risk ?? 0;
+    const cvr  = row.cvr_avg_risk_score ?? 0;
+    if (risk >= 40 || cvr >= 3) return ['red',   'High'];
+    if (risk >= 20 || cvr >= 1.5) return ['amber', 'Medium'];
+    return ['green', 'Low'];
+  }
+
+  // ── KPI cards ──
+  async function loadKPIs() {
+    const d = await fetch('/api/fleet/summary').then(r => r.json());
+    const grid = document.getElementById('kpi-grid');
+    grid.innerHTML = `
+      <div class="kpi-card blue">
+        <div class="kpi-label">Total Vehicles</div>
+        <div class="kpi-value">${d.total_vehicles.toLocaleString()}</div>
+        <div class="kpi-sub">${d.total_branches} branches</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-label">High Risk Vehicles</div>
+        <div class="kpi-value">${d.risk_distribution.high.toLocaleString()}</div>
+        <div class="kpi-sub">${((d.risk_distribution.high / d.total_vehicles) * 100).toFixed(1)}% of fleet</div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="kpi-label">Annual Fuel Forecast</div>
+        <div class="kpi-value">${fmt_gbp(d.fuel_total_forecast_gbp)}</div>
+        <div class="kpi-sub">Apr 2026 – Mar 2027</div>
+      </div>
+      <div class="kpi-card amber">
+        <div class="kpi-label">CVR Exceptions</div>
+        <div class="kpi-value">${d.cvr_latest_month.total_flagged_jobs.toLocaleString()}</div>
+        <div class="kpi-sub">${d.cvr_latest_month.branches_with_exceptions} branches affected</div>
+      </div>
+    `;
+
+    // Maintenance flags
+    const fl = d.maintenance_flags;
+    document.getElementById('flags-grid').innerHTML = `
+      <div class="flag-card">
+        <div class="flag-icon">🔧</div>
+        <div><div class="flag-label">Brakes Overdue</div><div class="flag-val">${fl.brakes_overdue}</div></div>
+      </div>
+      <div class="flag-card">
+        <div class="flag-icon">🛞</div>
+        <div><div class="flag-label">Tyres Overdue</div><div class="flag-val">${fl.tyres_overdue}</div></div>
+      </div>
+      <div class="flag-card">
+        <div class="flag-icon">📋</div>
+        <div><div class="flag-label">MOT Due 30 Days</div><div class="flag-val">${fl.mot_due_30_days}</div></div>
+      </div>
+      <div class="flag-card">
+        <div class="flag-icon" style="color:#ef4444">⚠️</div>
+        <div><div class="flag-label">MOT Overdue</div><div class="flag-val" style="color:#ef4444">${fl.mot_overdue}</div></div>
+      </div>
+    `;
+
+    // Risk donut chart
+    const ctx = document.getElementById('riskChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['High Risk', 'Medium Risk', 'Low Risk'],
+        datasets: [{
+          data: [d.risk_distribution.high, d.risk_distribution.medium, d.risk_distribution.low],
+          backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
+          borderWidth: 0,
+          hoverOffset: 6,
+        }]
+      },
+      options: {
+        cutout: '72%',
+        plugins: { legend: { display: false }, tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${ctx.raw} vehicles`
+          }
+        }},
+        maintainAspectRatio: false,
+      }
+    });
+
+    const total = d.risk_distribution.high + d.risk_distribution.medium + d.risk_distribution.low;
+    document.getElementById('risk-legend').innerHTML = [
+      ['#ef4444', 'High Risk',   d.risk_distribution.high],
+      ['#f59e0b', 'Medium Risk', d.risk_distribution.medium],
+      ['#10b981', 'Low Risk',    d.risk_distribution.low],
+    ].map(([c, l, v]) =>
+      `<div class="legend-item">
+        <div class="legend-dot" style="background:${c}"></div>
+        <span style="flex:1">${l}</span>
+        <strong>${v}</strong>
+        <span style="color:#94a3b8;font-size:.75rem">${((v/total)*100).toFixed(0)}%</span>
+      </div>`
+    ).join('');
+  }
+
+  // ── Branch table ──
+  async function loadBranches() {
+    branchData = await fetch('/api/branches').then(r => r.json());
+    renderTable();
+  }
+
+  function renderTable() {
+    const sorted = [...branchData].sort((a, b) => {
+      const av = a[sortKey] ?? -Infinity;
+      const bv = b[sortKey] ?? -Infinity;
+      return sortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+    });
+
+    document.getElementById('branch-tbody').innerHTML = sorted.map(r => {
+      const [color, label] = rag(r);
+      return `
+        <tr onclick="window.location='/branch?id=${r.branch}'">
+          <td>${r.branch}</td>
+          <td>${r.total_vans ?? '—'}</td>
+          <td>${r.high_risk ?? '—'}</td>
+          <td>${r.pct_high_risk != null ? r.pct_high_risk.toFixed(1) + '%' : '—'}</td>
+          <td>${fmt_gbp(r.fuel_total_spend)}</td>
+          <td>${r.cvr_avg_risk_score != null ? r.cvr_avg_risk_score.toFixed(1) : '—'}</td>
+          <td><span class="badge badge-${color}">${label}</span></td>
+        </tr>`;
+    }).join('');
+  }
+
+  function sortTable(key) {
+    if (sortKey === key) sortAsc = !sortAsc;
+    else { sortKey = key; sortAsc = false; }
+    renderTable();
+  }
+
+  loadKPIs();
+  loadBranches();
+</script>
+</body>
+</html>

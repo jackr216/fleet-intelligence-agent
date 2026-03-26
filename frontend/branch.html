@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fleet Intelligence — Branch Detail</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: #f1f5f9; color: #1e293b; min-height: 100vh; }
+
+    nav {
+      background: #1e293b; padding: 0 2rem;
+      display: flex; align-items: center; justify-content: space-between; height: 56px;
+      position: sticky; top: 0; z-index: 10;
+    }
+    nav .brand { color: #f8fafc; font-weight: 700; font-size: 1rem; }
+    nav .brand span { color: #818cf8; }
+    nav .links a { color: #94a3b8; text-decoration: none; font-size: .875rem;
+                   margin-left: 1.5rem; transition: color .15s; }
+    nav .links a:hover { color: #f8fafc; }
+
+    main { max-width: 1280px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    .back { display: inline-flex; align-items: center; gap: .4rem; color: #64748b;
+            text-decoration: none; font-size: .875rem; margin-bottom: 1.5rem;
+            transition: color .15s; }
+    .back:hover { color: #1e293b; }
+
+    .page-title { font-size: 1.5rem; font-weight: 700; margin-bottom: .25rem; }
+    .page-sub   { color: #64748b; font-size: .875rem; margin-bottom: 2rem; }
+
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+    .kpi-card { background: white; border-radius: 10px; padding: 1.25rem 1.5rem;
+                box-shadow: 0 1px 3px rgba(0,0,0,.08); border-left: 4px solid #e2e8f0; }
+    .kpi-card.red    { border-left-color: #ef4444; }
+    .kpi-card.amber  { border-left-color: #f59e0b; }
+    .kpi-card.blue   { border-left-color: #3b82f6; }
+    .kpi-card.purple { border-left-color: #8b5cf6; }
+    .kpi-label { font-size: .7rem; font-weight: 700; text-transform: uppercase;
+                 letter-spacing: .06em; color: #64748b; margin-bottom: .4rem; }
+    .kpi-value { font-size: 1.75rem; font-weight: 700; color: #0f172a; }
+    .kpi-sub   { font-size: .78rem; color: #94a3b8; margin-top: .3rem; }
+
+    .two-col { display: grid; grid-template-columns: 260px 1fr; gap: 1rem;
+               margin-bottom: 2rem; align-items: start; }
+
+    .card { background: white; border-radius: 10px; padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; color: #0f172a; }
+
+    .chart-wrap { position: relative; height: 200px; }
+
+    .stat-list { display: flex; flex-direction: column; gap: .6rem; margin-top: .5rem; }
+    .stat-row  { display: flex; justify-content: space-between; align-items: center;
+                 font-size: .875rem; padding: .4rem 0; border-bottom: 1px solid #f1f5f9; }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-label { color: #64748b; }
+    .stat-val   { font-weight: 600; color: #1e293b; }
+
+    table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    thead th {
+      text-align: left; padding: .6rem 1rem; font-size: .7rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .06em; color: #64748b;
+      border-bottom: 2px solid #e2e8f0; white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid #f1f5f9; transition: background .1s; }
+    tbody tr:hover { background: #f8fafc; }
+    tbody td { padding: .65rem 1rem; color: #334155; }
+    tbody td:first-child { font-weight: 600; color: #1e293b; }
+
+    .badge { display: inline-block; padding: .2rem .6rem; border-radius: 999px;
+             font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .badge-red   { background: #fee2e2; color: #b91c1c; }
+    .badge-amber { background: #fef3c7; color: #92400e; }
+    .badge-green { background: #dcfce7; color: #166534; }
+
+    .flag-yes { color: #ef4444; font-weight: 700; }
+    .flag-no  { color: #94a3b8; }
+
+    .cvr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .cvr-card { background: #f8fafc; border-radius: 8px; padding: 1rem; }
+    .cvr-month { font-size: .7rem; font-weight: 700; text-transform: uppercase;
+                 letter-spacing: .06em; color: #64748b; margin-bottom: .5rem; }
+    .cvr-stat  { font-size: .875rem; color: #334155; margin-bottom: .2rem; }
+    .cvr-big   { font-size: 1.5rem; font-weight: 700; color: #0f172a; }
+
+    .loading { color: #94a3b8; font-style: italic; padding: 2rem; text-align: center; }
+
+    @media (max-width: 900px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .two-col  { grid-template-columns: 1fr; }
+      .cvr-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">Fleet <span>Intelligence</span></div>
+  <div class="links">
+    <a href="/">Dashboard</a>
+    <a href="/chat">Chat</a>
+  </div>
+</nav>
+
+<main>
+  <a class="back" href="/">← Back to Dashboard</a>
+  <div class="page-title" id="page-title">Loading...</div>
+  <div class="page-sub"  id="page-sub"></div>
+
+  <div class="kpi-grid" id="kpi-grid"></div>
+
+  <div class="two-col">
+    <!-- Risk donut -->
+    <div class="card">
+      <h2>Risk Breakdown</h2>
+      <div class="chart-wrap"><canvas id="riskChart"></canvas></div>
+    </div>
+
+    <!-- CVR exceptions -->
+    <div class="card">
+      <h2>CVR Exceptions — Last 3 Months</h2>
+      <div class="cvr-grid" id="cvr-grid"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- Flagged jobs -->
+  <div class="card" style="margin-bottom:1rem">
+    <h2>Flagged CVR Jobs <span style="font-size:.8rem;font-weight:400;color:#94a3b8">— ranked by severity</span></h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Job No.</th>
+            <th>Month</th>
+            <th>Risk Score</th>
+            <th>Total WIP (£)</th>
+            <th>WIP Excess (£)</th>
+            <th>WIP / Turnover</th>
+            <th>Monthly Turnover (£)</th>
+          </tr>
+        </thead>
+        <tbody id="jobs-tbody">
+          <tr><td colspan="7" class="loading">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Top risk vehicles -->
+  <div class="card">
+    <h2>Top Risk Vehicles</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Registration</th>
+          <th>Make / Model</th>
+          <th>Risk Score</th>
+          <th>Brakes</th>
+          <th>Tyres</th>
+          <th>Recommended Action</th>
+        </tr>
+      </thead>
+      <tbody id="vehicles-tbody">
+        <tr><td colspan="6" class="loading">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+<script>
+  const branchId = new URLSearchParams(window.location.search).get('id');
+
+  if (!branchId) {
+    document.getElementById('page-title').textContent = 'No branch specified';
+  } else {
+    loadBranch(branchId);
+  }
+
+  async function loadBranch(id) {
+    const d = await fetch(`/api/branch/${encodeURIComponent(id)}`).then(r => r.json());
+    if (d.error) {
+      document.getElementById('page-title').textContent = 'Branch not found';
+      return;
+    }
+
+    document.title = `Fleet Intelligence — ${id}`;
+    document.getElementById('page-title').textContent = id;
+
+    const ragLabel = d.pct_high_risk >= 40 ? 'High Risk' : d.pct_high_risk >= 20 ? 'Medium Risk' : 'Low Risk';
+    document.getElementById('page-sub').textContent =
+      `${d.total_vans} vehicles  ·  ${ragLabel}  ·  ${d.pct_high_risk?.toFixed(1) ?? '—'}% high risk`;
+
+    // KPI cards
+    document.getElementById('kpi-grid').innerHTML = `
+      <div class="kpi-card red">
+        <div class="kpi-label">High Risk Vehicles</div>
+        <div class="kpi-value">${d.high_risk ?? '—'}</div>
+        <div class="kpi-sub">of ${d.total_vans} total</div>
+      </div>
+      <div class="kpi-card amber">
+        <div class="kpi-label">Brakes Overdue</div>
+        <div class="kpi-value">${d.maint_brakes_overdue ?? '—'}</div>
+        <div class="kpi-sub">vehicles need service</div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-label">Fuel Forecast</div>
+        <div class="kpi-value">${d.fuel_total_spend != null ? '£' + Math.round(d.fuel_total_spend).toLocaleString() : '—'}</div>
+        <div class="kpi-sub">Apr 2026 – Mar 2027</div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="kpi-label">CVR Avg Risk Score</div>
+        <div class="kpi-value">${d.cvr_avg_risk_score?.toFixed(1) ?? '—'}</div>
+        <div class="kpi-sub">out of 5</div>
+      </div>
+    `;
+
+    // Risk donut
+    const ctx = document.getElementById('riskChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['High', 'Medium', 'Low'],
+        datasets: [{
+          data: [d.high_risk ?? 0, d.medium_risk ?? 0, d.low_risk ?? 0],
+          backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
+          borderWidth: 0, hoverOffset: 6,
+        }]
+      },
+      options: {
+        cutout: '70%',
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12 } } },
+        maintainAspectRatio: false,
+      }
+    });
+
+    // CVR monthly breakdown
+    const months = [
+      { key: 'dec_2025', label: 'Dec 2025' },
+      { key: 'jan_2026', label: 'Jan 2026' },
+      { key: 'feb_2026', label: 'Feb 2026' },
+    ];
+    document.getElementById('cvr-grid').innerHTML = months.map(m => {
+      const flagged = d[`${m.key}_flagged`];
+      const total   = d[`${m.key}_total_jobs`];
+      const pct     = d[`${m.key}_pct_flagged`];
+      if (flagged == null) return `<div class="cvr-card"><div class="cvr-month">${m.label}</div><div class="cvr-stat" style="color:#94a3b8">No exceptions</div></div>`;
+      const pctStr = pct != null ? (pct * 100).toFixed(1) + '% exception rate' : '';
+      return `
+        <div class="cvr-card">
+          <div class="cvr-month">${m.label}</div>
+          <div class="cvr-big">${flagged}</div>
+          <div class="cvr-stat">flagged of ${total ?? '?'} jobs</div>
+          <div class="cvr-stat" style="color:#64748b">${pctStr}</div>
+        </div>`;
+    }).join('');
+
+    // Flagged jobs table
+    const jobs = d.flagged_jobs ?? [];
+    if (!jobs.length) {
+      document.getElementById('jobs-tbody').innerHTML =
+        '<tr><td colspan="7" class="loading">No flagged jobs for this branch</td></tr>';
+    } else {
+      document.getElementById('jobs-tbody').innerHTML = jobs.map(j => {
+        const scoreColor = j.risk_score >= 4 ? 'red' : j.risk_score >= 2 ? 'amber' : 'green';
+        return `
+          <tr>
+            <td>${j.job_no ?? '—'}</td>
+            <td>${j.month ?? '—'}</td>
+            <td><span class="badge badge-${scoreColor}">${j.risk_score ?? '—'}</span></td>
+            <td>${j.total_wip != null ? '£' + Math.round(j.total_wip).toLocaleString() : '—'}</td>
+            <td>${j.wip_excess != null ? '£' + Math.round(j.wip_excess).toLocaleString() : '—'}</td>
+            <td>${j.wip_to_turnover_ratio != null ? j.wip_to_turnover_ratio.toFixed(1) + 'x' : '—'}</td>
+            <td>${j.monthly_turnover != null ? '£' + Math.round(j.monthly_turnover).toLocaleString() : '—'}</td>
+          </tr>`;
+      }).join('');
+    }
+
+    // Top risk vehicles
+    const vehicles = d.top_risk_vehicles ?? [];
+    if (!vehicles.length) {
+      document.getElementById('vehicles-tbody').innerHTML =
+        '<tr><td colspan="6" class="loading">No high-risk vehicles found</td></tr>';
+      return;
+    }
+    document.getElementById('vehicles-tbody').innerHTML = vehicles.map(v => {
+      const band = v.risk_score >= 5 ? 'red' : v.risk_score >= 2 ? 'amber' : 'green';
+      return `
+        <tr onclick="window.location='/vehicle?id=${v.registration}&branch=${encodeURIComponent(id)}'" style="cursor:pointer">
+          <td style="color:#4f46e5;text-decoration:underline;text-underline-offset:3px">${v.registration}</td>
+          <td>${v.make ?? ''} ${v.model ?? ''}</td>
+          <td><span class="badge badge-${band}">${v.risk_score}</span></td>
+          <td class="${v.brakes_overdue ? 'flag-yes' : 'flag-no'}">${v.brakes_overdue ? 'Overdue' : 'OK'}</td>
+          <td class="${v.tyres_overdue  ? 'flag-yes' : 'flag-no'}">${v.tyres_overdue  ? 'Overdue' : 'OK'}</td>
+          <td style="font-size:.8rem;color:#64748b">${(v.recommended_action ?? '').split('|')[0].trim()}</td>
+        </tr>`;
+    }).join('');
+  }
+</script>
+</body>
+</html>
